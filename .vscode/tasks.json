@@ -1,0 +1,135 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "options": {
+      "env": {
+          "fruit": "candie",
+          "namespace": "candie"
+      }
+  },
+  "tasks": [
+      {
+          "label": "Cleanup",
+          "type": "shell",
+          "command": "rm",
+          "args": [
+              "-rvf",
+              "$fruit/helm/$fruit/values.yaml",
+              "$fruit/terraform/remote_state.tf",
+              "$fruit/terraform/terraform.tfvars",
+              "$fruit/terraform/.terraform",
+              "$fruit-local.retry"
+          ],
+          "presentation": {
+              "echo": true,
+              "reveal": "always",
+              "focus": true,
+              "panel": "shared",
+              "showReuseMessage": true,
+              "clear": true
+          },
+          "problemMatcher": [],
+          "group": {
+              "kind": "build",
+              "isDefault": true
+          }
+      },
+      {
+          "label": "Local - Ansible",
+          "type": "shell",
+          "command": "ansible-playbook",
+          "args": [
+              "$fruit-local.yml"
+          ],
+          "presentation": {
+              "echo": true,
+              "reveal": "always",
+              "focus": true,
+              "panel": "shared",
+              "showReuseMessage": true,
+              "clear": true
+          },
+          "problemMatcher": [],
+          "group": {
+              "kind": "build",
+              "isDefault": true
+          }
+      },
+      {
+          "label": "helm - dry run",
+          "type": "shell",
+          "command": "helm",
+          "args": [
+              "install",
+              "${fruit}",
+              "--dry-run",
+              "--debug",
+              "$fruit/helm/$fruit"
+          ],
+          "presentation": {
+              "echo": true,
+              "reveal": "always",
+              "focus": true,
+              "panel": "shared",
+              "showReuseMessage": true,
+              "clear": true
+          },
+          "problemMatcher": [],
+          "group": {
+              "kind": "build",
+              "isDefault": true
+          }
+      },
+      {
+          "label": "helm - install",
+          "type": "shell",
+          "command": "helm",
+          "args": [
+              "upgrade",
+              "--install",
+              "--namespace",
+              "${namespace}",
+              "${fruit}",
+              "--debug",
+              "$fruit/helm/$fruit"
+          ],
+          "presentation": {
+              "echo": true,
+              "reveal": "always",
+              "focus": true,
+              "panel": "shared",
+              "showReuseMessage": true,
+              "clear": true
+          },
+          "problemMatcher": [],
+          "group": {
+              "kind": "build",
+              "isDefault": true
+          }
+      },
+      {
+          "label": "helm - lint",
+          "type": "shell",
+          "command": "helm",
+          "args": [
+              "lint",
+              "--debug",
+              "$fruit/helm/$fruit"
+          ],
+          "presentation": {
+              "echo": true,
+              "reveal": "always",
+              "focus": true,
+              "panel": "shared",
+              "showReuseMessage": true,
+              "clear": true
+          },
+          "problemMatcher": [],
+          "group": {
+              "kind": "build",
+              "isDefault": true
+          }
+      }
+  ]
+}

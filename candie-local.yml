@@ -1,0 +1,9 @@
+- name: Create files tempaltes
+  hosts: 127.0.0.1
+  connection: local
+  vars:
+    FRUIT: "candie"
+    STATES_BUCKET: "orca-terraform-states"
+
+  roles:
+    - { role: candie }

@@ -1,0 +1,22 @@
+- name: Include var files
+  include_vars:
+    file: "devops-config.yml"
+
+- name: Template | Helm
+  template:
+    src:  "{{ FRUIT }}/templates/values.yaml"
+    dest: "{{ FRUIT }}/helm/{{ FRUIT }}/values.yaml"
+    mode: 0644
+
+#Copy Terraform Templates
+- name: Template | Terraform
+  template:
+    src:  "{{ FRUIT }}/templates/terraform.tfvars"
+    dest: "{{ FRUIT }}/terraform/terraform.tfvars"
+    mode: 0644
+
+- name: Template | Terraform
+  template:
+    src:  "{{ FRUIT }}/templates/remote_state.tf"
+    dest: "{{ FRUIT }}/terraform/remote_state.tf"
+    mode: 0644

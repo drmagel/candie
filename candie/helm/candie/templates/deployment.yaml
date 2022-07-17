@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.fruit }}
+  namespace: {{ .Values.fruit }}
+  labels:
+    role: {{ .Values.fruit }}
+    env: {{ .Values.fruit }}
+spec:
+  selector:
+    matchLabels:
+      role: {{ .Values.fruit }}
+      env: {{ .Values.fruit }}
+  strategy:
+      type: Recreate
+{{- if .Values.replicas }}
+  replicas: {{ .Values.replicas }}
+{{- end }}
+  template:
+    metadata:
+      annotations:
+        iam.amazonaws.com/role: {{ .Values.iam_role }}
+      labels:
+        role: {{ .Values.fruit }}
+        env: {{ .Values.fruit }}
+    spec:
+      containers:
+      - name: {{ .Values.fruit }}
+        image: "{{ .Values.image.repository }}/{{ .Values.fruit }}:{{ .Values.image.version }}"
+        imagePullPolicy: {{ .Values.image.imagePullPolicy }}
+        env:
+{{- if .Values.password_from_secret }}
+{{- range $key,$value := .Values.secrets}}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $value.secret_name }}
+                  key: {{ $value.secret_key }}
+{{- end }}
+{{- end }}
+{{- if .Values.http_liveliness }}
+        livenessProbe:
+          failureThreshold: {{ .Values.http_liveliness.failure }}
+          httpGet:
+            path: {{ .Values.http_liveliness.path }}
+            port: {{ .Values.http_liveliness.port }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.http_liveliness.delay }}
+          periodSeconds: {{ .Values.http_liveliness.period }}
+          successThreshold: {{ .Values.http_liveliness.success }}
+          timeoutSeconds: {{ .Values.http_liveliness.timeout }}
+{{- end }}
+
+{{- if .Values.http_readiness }}
+        livenessProbe:
+          failureThreshold: {{ .Values.http_readiness.failure }}
+          httpGet:
+            path: {{ .Values.http_readiness.path }}
+            port: {{ .Values.http_readiness.port }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.http_readiness.delay }}
+          periodSeconds: {{ .Values.http_readiness.period }}
+          successThreshold: {{ .Values.http_readiness.success }}
+          timeoutSeconds: {{ .Values.http_readiness.timeout }}
+{{- end }}
+
+        resources:
+{{ toYaml .Values.resources | trim | indent 10 }}
+        ports:
+{{ toYaml .Values.container_ports | trim | indent 10 }}
+
+

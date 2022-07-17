@@ -1,0 +1,98 @@
+########## Feature Flags - Enables/ disables parts of the deployment ###########
+aws_access_checker: {{ aws_access_checker }}
+password_from_secret: {{ password_from_secret }}
+hpa_enabled: {{ hpa_enabled }}
+ingress_enabled: {{ ingress_enabled }}
+node_port_enabled: {{ node_port_enabled }}
+############## General Configuration - Shared between all Pod's ###############
+
+fruit: {{ FRUIT }}
+
+iam_role: "{{ FRUIT }}-serverrole"
+
+image:
+  repository: {{ container.image.repository | mandatory }}
+  image_pull_policy: {{ container.image.imagePullPolicy | default("IfNotPresent") }}
+  version: {{ container.image.version | default("latest") }}
+
+update_strategy: {{ update_strategy | default("RollingUpdate") }}
+
+###### Health Check settings ######
+{% if http_liveliness is defined
+    and http_liveliness is not none %}
+http_liveliness:
+  path: {{ http_liveliness.path | mandatory }}
+  port: {{ http_liveliness.port | default("http") }}
+  delay: {{ http_liveliness.delay | default(1) }}
+  period: {{ http_liveliness.period | default(10) }}
+  timeout: {{ http_liveliness.timeout | default(1) }}
+  success: {{ http_liveliness.success | default(1) }}
+  failure: {{ http_liveliness.failure | default(3) }}
+{% endif %}
+
+{% if http_readiness is defined
+    and http_readiness is not none %}
+http_readiness:
+  path: {{ http_readiness.path | mandatory }}
+  port: {{ http_readiness.port | default("http") }}
+  delay: {{ http_readiness.delay | default(1) }}
+  period: {{ http_readiness.period | default(10) }}
+  timeout: {{ http_readiness.timeout | default(1) }}
+  success: {{ http_readiness.success | default(1) }}
+  failure: {{ http_readiness.failure | default(3) }}
+{% endif %}
+
+########################### Helm Deployment Values ############################
+
+####### AutoScaling ( HPA ) Configuration ######
+
+{% if hpa is defined and hpa_enabled %}
+hpa:
+  min_replica: {{ hpa.min_replica | mandatory }}
+  max_replica: {{ hpa.max_replica | mandatory }}
+  cpu_util: {{ hpa.cpu_util | mandatory }}
+  mem_util: {{ hpa.mem_util | mandatory }}
+{% else %}
+replicas: {{ container.replicas | mandatory }}
+{% endif %}
+
+resources:
+{{ container.resources | to_yaml | mandatory | indent( width = 2, indentfirst=true ) }}
+
+{% if container.ports is defined
+    and container.ports is not none %}
+container_ports:
+  {{ container.ports | to_yaml }}
+{% else %}
+container_ports:
+  - containerPort: 8080
+    name: http
+    protocol: TCP
+{% endif %}
+
+node_ports:
+{% for p in container.ports %}
+  - name: {{ p.name }}
+    protocol: {{ p.protocol }}
+    port: {{ p.containerPort}}
+    targetPort: {{ p.name }}
+{% endfor %}
+
+{% if secrets is defined
+    and secrets is not none %}
+secrets:
+  {{ secrets | indent(2) }}
+{% endif %}
+
+### Intress ###
+{% if alb_ingress_sites is defined
+    and alb_ingress_sites is not none %}
+ingress_sites:
+{{ alb_ingress_sites | to_yaml | indent( width = 2, indentfirst=true ) }}
+{% endif %}
+
+{% if alb_ingress_annotations is defined
+    and alb_ingress_annotations is not none %}
+ingress_annotations:
+{{ alb_ingress_annotations | indent( width = 2, indentfirst=true ) }}
+{% endif %} 

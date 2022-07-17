@@ -1,0 +1,25 @@
+{{- if .Values.hpa_enabled }}
+
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .Values.fruit }}
+  namespace: {{ .Values.fruit }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Values.fruit }}
+  maxReplicas: {{ .Values.hpa.max_replica }}
+  minReplicas: {{ .Values.hpa.min_replica }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: {{ .Values.hpa.cpu_util }}
+  - type: Resource
+    resource:
+      name: memory
+      targetAverageValue: {{ .Values.hpa.mem_util }}
+
+{{- end }}

@@ -1,0 +1,118 @@
+aws_access_checker: true
+password_from_secret: true
+hpa_enabled: true
+ingress_enabled: true
+node_port_enabled: true
+###
+
+aws_region: "us-east-1"
+aws_account: "515321278346"
+aws_cluster_arn: "arn:aws:iam::{{aws_account}}:role/eksClusterRole"
+aws_vpc_id: "vpc-0bd5bee96cffc7397"
+aws_profile: "candie-account"
+aws_artefacts_repository: "{{aws_account}}.dkr.ecr.{{aws_region}}.amazonaws.com"
+
+aws_domain_name: "orcandies.click"
+aws_certificate_arn: "arn:aws:acm:{{aws_region}}:{{aws_account}}:certificate/39779955-5cef-4455-9dd5-02dd6c66c71a"
+aws_vpc_subnets: "subnet-0904ae8ad4505e630,subnet-04a4efb2b18fba388,subnet-09f6207ded16b4dc6,subnet-038017bc52fe6cd96,subnet-0fc7df18928dd5d99,subnet-0d08c12228cfd936b"
+aws_vpc_ingress_security_group_ids: "sg-0bf06058c2249f869"
+
+#MariaDB
+rds_vpc_security_group_ids: '"sg-0186f78d176fb38bb"'
+
+#Terraform RDS Variables
+rds:
+  vpc_security_group_ids: "{{rds_vpc_security_group_ids}}"
+  engine: "mariadb"
+  engine_version: "10.4.21"
+  instance_class: "db.t2.small"
+  allocated_storage: 10
+  multi_az: "false"
+  identifier: "{{FRUIT}}-rds"
+  db_name: "{{FRUIT}}"
+  username: "{{FRUIT}}"
+  password: "U1VoaGRHVlpiM1VLCg=="
+  auto_minor_version_upgrade: "true"
+  maintenance_window: "Mon:00:00-Mon:03:00"
+  backup_window: "03:00-06:00"
+  backup_retention_period: 1
+
+######################## General Deployment Settings ##########################
+container:
+  iam_role: "{{FRUIT}}-serverrole"
+  replicas: 2
+  image:
+    repository: "{{aws_artefacts_repository}}"
+    # in Development, since we do not change container version, we want image to be downloaded always from ECR"
+    imagePullPolicy: IfNotPresent
+
+  # set the ports for the container in the deployment i.e EXPOSE overide
+  ports:
+    - containerPort: 5000
+      name: http
+      protocol: TCP
+
+  resources:
+    requests:
+      cpu: 0.05
+      memory: 50Mi
+    limits:
+      cpu: 0.2
+      memory: 100Mi
+
+# Health Checks parameters - combination of two checks "liveliness" and
+#+ "readiness" ( check the k8 docs for details), we can support seperate params
+http_liveliness:
+  path: /_healthz
+  port: 5000
+  delay: 60
+  period: 10
+  timeout: 7
+  failure: 3
+
+http_readiness:
+  path: /_healthz
+  port: 5000
+  delay: 60
+  period: 10
+  timeout: 7
+  failure: 3
+
+hpa:
+  min_replica: 1
+  max_replica: 3
+  cpu_util: 70
+  mem_util: 70Mi
+
+
+alb_ingress_annotations: |
+  kubernetes.io/ingress.class: "alb"
+  alb.ingress.kubernetes.io/target-type: "instance"
+  alb.ingress.kubernetes.io/backend-protocol: HTTP
+  alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+  alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80,"HTTPS": 443}]'
+  alb.ingress.kubernetes.io/ssl-redirect: "443"
+  alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+  external-dns.alpha.kubernetes.io/hostname: {{ FRUIT }}.{{ aws_domain_name }}
+  alb.ingress.kubernetes.io/scheme: internet-facing
+  alb.ingress.kubernetes.io/certificate-arn: {{ aws_certificate_arn }}
+  alb.ingress.kubernetes.io/manage-backend-security-group-rules: "true"
+  alb.ingress.kubernetes.io/tags: "Name={{FRUIT}}"
+  alb.ingress.kubernetes.io/security-groups: {{ aws_vpc_ingress_security_group_ids }}
+  alb.ingress.kubernetes.io/subnets: {{ aws_vpc_subnets }}
+
+alb_ingress_sites:
+  - host: "{{ FRUIT }}.{{ aws_domain_name }}"
+    paths:
+      - path: /
+        path_type: "Prefix"
+        service_name: "{{FRUIT}}-node-port"
+        service_port: 5000
+
+###################### Environment Variables from secrets ######################
+# This key is the ENVIRONMENT VARIABLE and it will include the secret_name and secret_key as it is configured in kubernetes secretes and amazon secrets
+secrets: |
+  DATABASE_URL:
+    secret_name: {{FRUIT}}-db-uri
+    secret_key:  database_uri
+    secret_pass: mysql+mysqldb://{{rds.username}}:{{rds.password | b64decode | trim }}@{{rds.identifier}}.{{aws_domain_name}}/{{rds.db_name}}
